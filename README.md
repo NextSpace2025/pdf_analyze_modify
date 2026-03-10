@@ -1,52 +1,84 @@
-# pdf_analyze_modify
+# PDF Industrial Analyzer
 
-PDF 폴더를 분석하고, 텍스트 추출 결과(사유)에 따라 파일명을 일괄 변경·삭제할 수 있는 로컬 GUI 도구입니다.
+Desktop tool for PDF OCR analysis and safe filename operations.
 
-## 요구 사항
+## What is implemented
 
-- Python 3.10+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) 설치
-- PDF 사용 시 [Poppler](https://poppler.freedesktop.org/) 또는 `pdf2image` 환경 (Windows에서 사용 가능)
+- Industrial-style UI (dark panel-based tool look)
+- `context7` MCP attached as the default MCP setting
+- External API can be attached separately (optional)
+- SQLite persistence with exactly two functional tables:
+  - `api_settings`: stores API/MCP configuration
+  - `file_rollback_history`: stores filename before/after for rollback
+- Rollback feature based on filename before/after diff
 
-## 설치
+## Run
 
 ```bash
 pip install -r requirements.txt
-```
-
-## 실행 (로컬 GUI)
-
-```bash
 python app.py
 ```
 
-1. **PDF 폴더 경로**를 입력하거나 **찾아보기**로 선택한 뒤 **분석**을 누르면, 해당 폴더의 PDF 목록과 각 파일의 내용 미리보기·분석 사유가 표시됩니다.
-2. **파일명 바꾸기** / **삭제(휴지통)** 로 개별 처리할 수 있습니다.
-3. **사유 기반 일괄 변경**: 분석 사유(정상 추출, 추출 실패 등)에 따라 규칙(접두사)을 지정하면, 해당 규칙에 맞게 파일명이 일괄 변경됩니다.
+## Dev Run (auto restart)
 
-## CLI (스팸 필터)
-
-`config/keywords.yaml`에서 블랙리스트 키워드와 격리 폴더를 설정한 뒤:
+When editing code/config frequently, run:
 
 ```bash
-python main.py ./대상폴더
-python main.py ./대상폴더 --use-trash   # 휴지통으로 이동
-python main.py ./대상폴더 --dry-run     # 이동 없이 스팸 목록만 출력
+python dev_run.py
 ```
 
-## 프로젝트 구조
+`dev_run.py` watches `src/`, `config/`, `templates/`, and key root files.
+On file changes, it automatically restarts `app.py`.
 
+## External API contract (optional)
+
+If `Use External API` is enabled, the app calls:
+
+- `POST {API_BASE_URL}/suggest-name`
+- Body:
+
+```json
+{
+  "reason": "Extracted text successfully.",
+  "current_name": "sample.pdf",
+  "model": "gpt-4.1-mini",
+  "mcp": {
+    "name": "context7",
+    "url": "https://your-mcp-endpoint"
+  }
+}
 ```
-pdf_reader/
-├── src/
-│   ├── config.py       # 설정 로드
-│   ├── ocr.py          # 이미지/PDF 텍스트 추출
-│   ├── naming_api.py   # 사유 기반 파일명 규칙 API
-│   ├── spam_checker.py # 블랙리스트 매칭
-│   └── file_handler.py # 격리/휴지통 이동
-├── config/
-│   └── keywords.yaml
-├── app.py              # 로컬 GUI (Tkinter)
-├── main.py             # CLI
-└── requirements.txt
+
+- Expected response:
+
+```json
+{
+  "suggested_name": "OK_sample.pdf"
+}
 ```
+
+If the API call fails, batch rename falls back to local rule-based naming.
+
+## API Base URL separate config
+
+You can set API Base URL outside the app UI:
+
+- Environment variable: `PDF_READER_API_BASE_URL`
+- YAML config: `config/api_settings.yaml` -> `api_base_url`
+
+Load order:
+
+1. Value saved in app DB (`api_settings.api_base_url`)
+2. `PDF_READER_API_BASE_URL`
+3. `config/api_settings.yaml`
+
+## Database
+
+Database file: `config/app_state.db`
+
+Tables:
+
+- `api_settings`
+- `file_rollback_history`
+
+`sqlite_sequence` may appear automatically because of SQLite `AUTOINCREMENT`.

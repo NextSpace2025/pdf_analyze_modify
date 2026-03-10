@@ -3,3 +3,5 @@ pdf2image>=1.16.3
 PyMuPDF>=1.23.0
 send2trash>=1.8.2
 PyYAML>=6.0
+pystray>=0.19.0
+win10toast; sys_platform == "win32"

@@ -1,0 +1,3 @@
+# Optional external API defaults
+# This value is used when DB-stored api_base_url is empty.
+api_base_url: ""
